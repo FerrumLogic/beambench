@@ -12,7 +12,9 @@
     "hide": "Verbergen",
     "rename": "Hernoemen",
     "loading": "Laden...",
-    "go": "Ga"
+    "go": "Ga",
+    "on": "Aan",
+    "off": "Uit"
   },
   "controller_choice": {
     "controller": "Controller",
@@ -2224,7 +2226,13 @@
             "description": "BlazeX M3 10W-voorinstelling op basis van documentatie en de configuratie van een eigenaar.",
             "advisory": "200 x 150 mm, S1000. USB: 115200 baud. Netwerk: poort 8080. Home de machine of schakel homen bij verbinden in. De Z-aansluiting is voor een rotatieaccessoire."
           },
+          "creality_falcon2_pro_22w": {
+            "description": "USB-voorinstelling voor originele hardware op basis van documentatie. Controleer het bereik en de maximale S-waarde. Praktijktests zijn nog niet uitgevoerd."
+          },
           "creality_falcon2_pro_40w": {
+            "description": "USB-voorinstelling voor originele hardware op basis van documentatie. Controleer het bereik en de maximale S-waarde. Praktijktests zijn nog niet uitgevoerd."
+          },
+          "creality_falcon2_pro_60w": {
             "description": "USB-voorinstelling voor originele hardware op basis van documentatie. Controleer het bereik en de maximale S-waarde. Praktijktests zijn nog niet uitgevoerd."
           },
           "twotrees_tt_5_5s": {
@@ -2271,7 +2279,10 @@
         "notes": "Opmerkingen",
         "duplicate": "Duplicaat",
         "edit": "Bewerken",
-        "delete": "Verwijderen"
+        "delete": "Verwijderen",
+        "clb_review": "LightBurn-import controleren",
+        "clb_summary": "{count} voorinstellingen om te importeren; {skipped} overgeslagen",
+        "clb_notice": "Alleen ondersteunde instellingen worden geïmporteerd. Andere blijven in de notities en moeten handmatig worden gecontroleerd. Sublagen blijven samen in één voorinstelling. Controleer de instellingen voor uw laser voor gebruik."
       },
       "camera": {
         "status": {

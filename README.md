@@ -5,6 +5,9 @@ engraving jobs. The application includes a Tauri/React interface and a Rust
 workspace containing its import, geometry, planning, preview, and controller
 support.
 
+[Download the latest release](https://github.com/schmnr/beambench/releases/latest)
+or visit [beambench.com](https://beambench.com).
+
 ## Help and contributions
 
 - For product help or to submit an in-app diagnostic report, visit
@@ -48,8 +51,8 @@ build Beam Bench.
 Build and test the Rust workspace:
 
 ```sh
-cargo build --workspace
-cargo test --workspace
+cargo build --workspace --exclude pdf417
+cargo test --workspace --exclude pdf417
 ```
 
 Build the desktop application after installing the platform prerequisites for

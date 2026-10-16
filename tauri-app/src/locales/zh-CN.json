@@ -12,7 +12,9 @@
     "hide": "隐藏",
     "rename": "重命名",
     "loading": "正在加载...",
-    "go": "前往"
+    "go": "前往",
+    "on": "开启",
+    "off": "关闭"
   },
   "controller_choice": {
     "controller": "Controller",
@@ -2224,7 +2226,13 @@
             "description": "根据文档和用户配置建立的 BlazeX M3 10W 预设。",
             "advisory": "200 x 150 mm，S1000。USB：115200 波特率。网络：端口 8080。请回零或启用连接时回零。Z 接口用于旋转附件。"
           },
+          "creality_falcon2_pro_22w": {
+            "description": "基于文档的原装硬件 USB 预设。请核对行程和最大 S 值。尚未进行实机测试。"
+          },
           "creality_falcon2_pro_40w": {
+            "description": "基于文档的原装硬件 USB 预设。请核对行程和最大 S 值。尚未进行实机测试。"
+          },
+          "creality_falcon2_pro_60w": {
             "description": "基于文档的原装硬件 USB 预设。请核对行程和最大 S 值。尚未进行实机测试。"
           },
           "twotrees_tt_5_5s": {
@@ -2271,7 +2279,10 @@
         "notes": "注释",
         "duplicate": "重复",
         "edit": "编辑",
-        "delete": "删除"
+        "delete": "删除",
+        "clb_review": "检查 LightBurn 导入",
+        "clb_summary": "待导入预设：{count}；已跳过：{skipped}",
+        "clb_notice": "仅导入受支持的设置。其他设置保留在备注中，需要手动检查。子图层保留在同一个预设中。使用前请检查您的激光设备设置。"
       },
       "camera": {
         "status": {

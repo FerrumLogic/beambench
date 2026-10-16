@@ -12,7 +12,9 @@
     "hide": "Ausblenden",
     "rename": "Umbenennen",
     "loading": "Wird geladen...",
-    "go": "Los"
+    "go": "Los",
+    "on": "Ein",
+    "off": "Aus"
   },
   "controller_choice": {
     "controller": "Controller",
@@ -2224,7 +2226,13 @@
             "description": "BlazeX M3 10W-Voreinstellung anhand der Dokumentation und einer Besitzerkonfiguration.",
             "advisory": "200 x 150 mm, S1000. USB: 115200 Baud. Netzwerk: Port 8080. Referenzfahrt ausführen oder beim Verbinden aktivieren. Der Z-Anschluss ist für eine Rotationseinheit."
           },
+          "creality_falcon2_pro_22w": {
+            "description": "USB-Voreinstellung für Originalhardware auf Basis der Dokumentation. Verfahrweg und maximalen S-Wert prüfen. Praxistest steht aus."
+          },
           "creality_falcon2_pro_40w": {
+            "description": "USB-Voreinstellung für Originalhardware auf Basis der Dokumentation. Verfahrweg und maximalen S-Wert prüfen. Praxistest steht aus."
+          },
+          "creality_falcon2_pro_60w": {
             "description": "USB-Voreinstellung für Originalhardware auf Basis der Dokumentation. Verfahrweg und maximalen S-Wert prüfen. Praxistest steht aus."
           },
           "twotrees_tt_5_5s": {
@@ -2271,7 +2279,10 @@
         "notes": "Notizen",
         "duplicate": "Duplizieren",
         "edit": "Bearbeiten",
-        "delete": "Löschen"
+        "delete": "Löschen",
+        "clb_review": "LightBurn-Import prüfen",
+        "clb_summary": "{count} Vorlagen zum Importieren; {skipped} übersprungen",
+        "clb_notice": "Nur unterstützte Einstellungen werden importiert. Andere bleiben in den Notizen und müssen manuell geprüft werden. Unterebenen bleiben in einer gemeinsamen Vorlage. Prüfen Sie die Einstellungen für Ihren Laser vor der Verwendung."
       },
       "camera": {
         "status": {

@@ -12,7 +12,9 @@
     "hide": "Nascondi",
     "rename": "Rinomina",
     "loading": "Caricamento...",
-    "go": "Vai"
+    "go": "Vai",
+    "on": "Attivo",
+    "off": "Disattivo"
   },
   "controller_choice": {
     "controller": "Controller",
@@ -2224,7 +2226,13 @@
             "description": "Preimpostazione BlazeX M3 10W basata sulla documentazione e sulla configurazione di un proprietario.",
             "advisory": "200 x 150 mm, S1000. USB: 115200 baud. Rete: porta 8080. Eseguire l’azzeramento o abilitarlo alla connessione. Il connettore Z è per un accessorio rotativo."
           },
+          "creality_falcon2_pro_22w": {
+            "description": "Preimpostazione USB per hardware originale basata sulla documentazione. Verifica la corsa e il valore S massimo. Test fisici ancora da eseguire."
+          },
           "creality_falcon2_pro_40w": {
+            "description": "Preimpostazione USB per hardware originale basata sulla documentazione. Verifica la corsa e il valore S massimo. Test fisici ancora da eseguire."
+          },
+          "creality_falcon2_pro_60w": {
             "description": "Preimpostazione USB per hardware originale basata sulla documentazione. Verifica la corsa e il valore S massimo. Test fisici ancora da eseguire."
           },
           "twotrees_tt_5_5s": {
@@ -2271,7 +2279,10 @@
         "notes": "Note",
         "duplicate": "Duplicato",
         "edit": "Modifica",
-        "delete": "Elimina"
+        "delete": "Elimina",
+        "clb_review": "Verifica importazione LightBurn",
+        "clb_summary": "{count} preimpostazioni da importare; {skipped} ignorate",
+        "clb_notice": "Vengono importate solo le impostazioni supportate. Le altre restano nelle note e richiedono una verifica manuale. I sottolivelli restano insieme in una preimpostazione. Verifica le impostazioni per il tuo laser prima dell’uso."
       },
       "camera": {
         "status": {

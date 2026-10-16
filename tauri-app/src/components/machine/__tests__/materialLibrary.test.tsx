@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
+import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
+import '@testing-library/jest-dom/vitest';
 
 import { MaterialLibrary } from '../MaterialLibrary.js';
 import { useMaterialStore } from '../../../stores/materialStore.js';
@@ -7,9 +10,12 @@ import { useProjectStore } from '../../../stores/projectStore.js';
 import type { MaterialPreset } from '../../../types/material.js';
 import type { Project } from '../../../types/project.js';
 import { makeLayer, makeProject, makeRasterSettings } from '../../../test-utils/projectFixtures.js';
+import { defaultVectorSettings } from '../../../types/cutEntryDefaults';
+import { withMaterialEntries } from '../../../utils/materialPresets';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn().mockResolvedValue(null) }));
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn().mockReturnValue(new Promise(() => {})) }));
+vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), save: vi.fn() }));
 
 const initialMaterialState = useMaterialStore.getState();
 const initialProjectState = useProjectStore.getState();
@@ -90,10 +96,10 @@ const samplePresets: MaterialPreset[] = [
 
 function seedStores(overrides?: {
   presets?: MaterialPreset[];
-  savePreset?: ReturnType<typeof vi.fn>;
-  loadPresets?: ReturnType<typeof vi.fn>;
-  deletePreset?: ReturnType<typeof vi.fn>;
-  applyPreset?: ReturnType<typeof vi.fn>;
+  savePreset?: ReturnType<typeof useMaterialStore.getState>['savePreset'];
+  loadPresets?: ReturnType<typeof useMaterialStore.getState>['loadPresets'];
+  deletePreset?: ReturnType<typeof useMaterialStore.getState>['deletePreset'];
+  applyPreset?: ReturnType<typeof useMaterialStore.getState>['applyPreset'];
   project?: Project | null;
   selectedLayerId?: string | null;
 }) {
@@ -120,9 +126,102 @@ afterEach(() => {
   cleanup();
   useMaterialStore.setState(initialMaterialState, true);
   useProjectStore.setState(initialProjectState, true);
+  vi.mocked(invoke).mockReset().mockResolvedValue(null);
+  vi.mocked(open).mockReset();
 });
 
 describe('MaterialLibrary', () => {
+  it('previews CLB without saving, then imports exactly the reviewed presets', async () => {
+    seedStores();
+    vi.mocked(open).mockResolvedValue('/materials.CLB');
+    vi.mocked(invoke).mockResolvedValueOnce({
+      presets: [samplePresets[0]],
+      skipped: [{ name: 'Image preset', reason: 'Unsupported operation: Image' }],
+    }).mockResolvedValueOnce([...samplePresets, { ...samplePresets[0], id: 'new-id' }]);
+    render(<MaterialLibrary />);
+    fireEvent.click(screen.getByTestId('import-presets'));
+    const dialog = await screen.findByTestId('clb-import-review');
+    expect(open).toHaveBeenCalledWith(expect.objectContaining({ filters: [{ name: 'JSON / LightBurn', extensions: ['json', 'clb'] }] }));
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledWith('preview_clb_material_library', { path: '/materials.CLB' });
+    expect(within(dialog).getByText('1 preset to import; 1 skipped')).toBeDefined();
+    expect(within(dialog).getByText('Image preset: Unsupported operation: Image')).toBeDefined();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+    await waitFor(() => expect(screen.queryByTestId('clb-import-review')).toBeNull());
+    expect(invoke).toHaveBeenLastCalledWith('import_reviewed_material_presets', { presets: [samplePresets[0]] });
+    expect(useMaterialStore.getState().presets).toHaveLength(3);
+  });
+
+  it('cancels CLB review without changing the library', async () => {
+    seedStores();
+    vi.mocked(open).mockResolvedValue('/materials.clb');
+    vi.mocked(invoke).mockResolvedValue({ presets: [samplePresets[0]], skipped: [] });
+    render(<MaterialLibrary />);
+    fireEvent.click(screen.getByTestId('import-presets'));
+    const dialog = await screen.findByTestId('clb-import-review');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByTestId('clb-import-review')).toBeNull();
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(useMaterialStore.getState().presets).toEqual(samplePresets);
+  });
+
+  it('includes preset details in the dialog keyboard focus cycle', async () => {
+    seedStores();
+    vi.mocked(open).mockResolvedValue('/materials.clb');
+    vi.mocked(invoke).mockResolvedValue({ presets: [samplePresets[0]], skipped: [] });
+    render(<MaterialLibrary />);
+    fireEvent.click(screen.getByTestId('import-presets'));
+    const dialog = await screen.findByTestId('clb-import-review');
+    const summary = dialog.querySelector('summary')!;
+    fireEvent.keyDown(dialog, { key: 'Tab' });
+    expect(document.activeElement).toBe(summary);
+    const importButton = within(dialog).getByRole('button', { name: 'Import' });
+    importButton.focus();
+    fireEvent.keyDown(importButton, { key: 'Tab' });
+    expect(document.activeElement).toBe(summary);
+    fireEvent.keyDown(summary, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(importButton);
+  });
+
+  it('keeps a failed import open for retry without changing local presets', async () => {
+    seedStores();
+    vi.mocked(open).mockResolvedValue('/materials.clb');
+    vi.mocked(invoke).mockResolvedValueOnce({ presets: [samplePresets[0]], skipped: [] })
+      .mockRejectedValueOnce('Disk full');
+    render(<MaterialLibrary />);
+    fireEvent.click(screen.getByTestId('import-presets'));
+    const dialog = await screen.findByTestId('clb-import-review');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+    await waitFor(() => expect(within(dialog).getByRole('alert').textContent).toContain('Disk full'));
+    expect(useMaterialStore.getState().presets).toEqual(samplePresets);
+    expect(within(dialog).getByRole('button', { name: 'Import' })).not.toBeDisabled();
+  });
+
+  it('disables import when the CLB contains only unsupported entries', async () => {
+    seedStores();
+    vi.mocked(open).mockResolvedValue('/materials.clb');
+    vi.mocked(invoke).mockResolvedValue({ presets: [], skipped: [{ name: 'Tool', reason: 'Unsupported operation: Tool' }] });
+    render(<MaterialLibrary />);
+    fireEvent.click(screen.getByTestId('import-presets'));
+    const dialog = await screen.findByTestId('clb-import-review');
+    expect(within(dialog).getByRole('button', { name: 'Import' })).toBeDisabled();
+    expect(invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves JSON import and does nothing when the picker is cancelled', async () => {
+    const loadPresets = vi.fn().mockResolvedValue(undefined);
+    seedStores({ loadPresets });
+    vi.mocked(open).mockResolvedValueOnce(null).mockResolvedValueOnce('/materials.json');
+    render(<MaterialLibrary />);
+    fireEvent.click(screen.getByTestId('import-presets'));
+    await waitFor(() => expect(screen.getByTestId('import-presets')).not.toBeDisabled());
+    expect(invoke).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('import-presets'));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('import_material_presets', { path: '/materials.json' }));
+    expect(screen.queryByTestId('clb-import-review')).toBeNull();
+    expect(loadPresets).toHaveBeenCalledTimes(2); // Initial load and import reload.
+  });
+
   it('renders preset list with names', () => {
     seedStores();
     render(<MaterialLibrary />);
@@ -209,11 +308,11 @@ describe('MaterialLibrary', () => {
     render(<MaterialLibrary />);
 
     const filter = screen.getByTestId('operation-filter');
-    expect(optionLabels(filter)).toEqual(['All Ops', 'Line', 'Fill', 'Offset Fill']);
+    expect(optionLabels(filter)).toEqual(['All Ops', 'Line', 'Fill', 'Offset Fill', 'Image']);
 
     fireEvent.click(screen.getAllByTitle('Edit')[0]);
     const select = screen.getByTestId('operation-select');
-    expect(optionLabels(select)).toEqual(['Line', 'Fill', 'Offset Fill']);
+    expect(optionLabels(select)).toEqual(['Line', 'Fill', 'Offset Fill', 'Image']);
   });
 
   it('preserves an existing unsupported operation without offering it for new presets', () => {
@@ -232,7 +331,7 @@ describe('MaterialLibrary', () => {
     const select = screen.getByTestId('operation-select') as HTMLSelectElement;
 
     expect(select.value).toBe('cut');
-    expect(optionLabels(select)).toEqual(['Line', 'Fill', 'Offset Fill', 'Cut (existing)']);
+    expect(optionLabels(select)).toEqual(['Line', 'Fill', 'Offset Fill', 'Image', 'Cut (existing)']);
   });
 
   it('keeps the editor open when saving fails', async () => {
@@ -282,6 +381,62 @@ describe('MaterialLibrary', () => {
         newsprint_frequency: null,
       }),
     );
+  });
+
+  it('captures every sub-layer and its complete settings without retaining entry IDs or references', () => {
+    const savePreset = vi.fn();
+    const project = createProjectWithRasterLayer();
+    const first = project.layers[0].entries[0];
+    first.power_min_percent = 12;
+    first.air_assist = true;
+    first.z_offset_mm = -1.2;
+    first.gcode_prefix = 'M8';
+    const second = { ...first, id: 'entry-two', operation: 'line' as const, output_enabled: false, raster_settings: null, vector_settings: { ...defaultVectorSettings(), kerf_offset_mm: 0.15, tab_count: 4, passes: 3 } };
+    project.layers[0].entries.push(second);
+    seedStores({ savePreset, project, selectedLayerId: 'l1' });
+    render(<MaterialLibrary />);
+    fireEvent.click(screen.getByTestId('create-from-layer'));
+    const saved = savePreset.mock.calls[0][0] as MaterialPreset;
+    expect(saved.entries).toHaveLength(2);
+    expect(saved.entries![0]).toMatchObject({ power_min_percent: 12, air_assist: true, z_offset_mm: -1.2, gcode_prefix: 'M8', raster_settings: first.raster_settings });
+    expect(saved.entries![1]).toMatchObject({ operation: 'line', output_enabled: false, vector_settings: second.vector_settings });
+    expect(saved.entries![0]).not.toHaveProperty('id');
+    first.raster_settings!.scan_angle = 99;
+    expect(saved.entries![0].raster_settings!.scan_angle).toBe(45);
+  });
+
+  it('finds a recipe by operations used by its secondary sub-layers', () => {
+    const first = createProjectWithRasterLayer().layers[0].entries[0];
+    const second = { ...first, id: 'entry-two', operation: 'line' as const, raster_settings: null, vector_settings: defaultVectorSettings() };
+    const preset = withMaterialEntries(samplePresets[0], [first, second]);
+    seedStores({ presets: [preset] });
+    render(<MaterialLibrary />);
+    fireEvent.change(screen.getByTestId('operation-filter'), { target: { value: 'line' } });
+    expect(screen.getByText(preset.name)).toBeDefined();
+    expect(screen.getByText('2 sub-layers')).toBeDefined();
+  });
+
+  it('retains the complete recipe when editing metadata or primary settings, including zero values', async () => {
+    const project = createProjectWithRasterLayer();
+    const first = project.layers[0].entries[0];
+    first.power_min_percent = 8;
+    first.air_assist = true;
+    const second = { ...first, id: 'entry-two', vector_settings: null, z_offset_mm: -2 };
+    const preset = withMaterialEntries({ ...samplePresets[0], thickness_mm: 0, power_percent: 0 }, [first, second]);
+    preset.power_percent = 0;
+    preset.entries![0].power_percent = 0;
+    const savePreset = vi.fn().mockResolvedValue(true);
+    seedStores({ savePreset, presets: [preset] });
+    render(<MaterialLibrary />);
+    fireEvent.click(screen.getByTitle('Edit'));
+    fireEvent.change(screen.getByPlaceholderText('Name'), { target: { value: 'Complete recipe' } });
+    fireEvent.click(screen.getByText('Save'));
+    const saved = savePreset.mock.calls[0][0] as MaterialPreset;
+    expect(saved.name).toBe('Complete recipe');
+    expect(saved.thickness_mm).toBe(0);
+    expect(saved.power_percent).toBe(0);
+    expect(saved.entries).toEqual(preset.entries);
+    await waitFor(() => expect(screen.queryByPlaceholderText('Name')).toBeNull());
   });
 
   it('guards switching presets when the current edit is dirty', () => {

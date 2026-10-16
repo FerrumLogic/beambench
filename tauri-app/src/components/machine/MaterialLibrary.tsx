@@ -8,9 +8,10 @@ import { useProjectStore } from '../../stores/projectStore.js';
 import { useNotificationStore } from '../../stores/notificationStore.js';
 import { wrapBackendError } from '../../i18n/errors';
 import { useAppStore } from '../../stores/appStore.js';
-import type { MaterialPreset } from '../../types/material.js';
+import type { ClbImportReport, MaterialPreset } from '../../types/material.js';
+import { MaterialLibraryImportReview } from './MaterialLibraryImportReview';
 import type { OperationType } from '../../types/project.js';
-import { effectiveDpi, effectiveLineIntervalMm } from '../../types/rasterSettings.js';
+import { newMaterialEntry, updateMaterialPrimary, withMaterialEntries } from '../../utils/materialPresets';
 import {
   displaySpeedToMmMin,
   formatSpeedForDisplay,
@@ -29,6 +30,7 @@ const OPERATION_OPTIONS: Array<{ value: OperationType; labelKey: string }> = [
   { value: 'line', labelKey: 'panels.machine.material_library.operation.line' },
   { value: 'fill', labelKey: 'panels.machine.material_library.operation.fill' },
   { value: 'offset_fill', labelKey: 'panels.machine.material_library.operation.offset_fill' },
+  { value: 'image', labelKey: 'panels.machine.material_library.operation.image' },
 ];
 
 const OPERATION_LABEL_KEYS: Record<OperationType, string> = {
@@ -90,6 +92,9 @@ export function MaterialLibrary() {
   const effectiveLayerId = selectedLayerId ?? project?.layers[0]?.id ?? null;
 
   const [search, setSearch] = useState('');
+  const [importReview, setImportReview] = useState<ClbImportReport | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [opFilter, setOpFilter] = useState<string>('all');
   const [deviceFilter, setDeviceFilter] = useState<string>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -139,7 +144,7 @@ export function MaterialLibrary() {
     (p) =>
       (p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.material.toLowerCase().includes(search.toLowerCase())) &&
-      (opFilter === 'all' || p.operation === opFilter) &&
+      (opFilter === 'all' || (p.entries?.length ? p.entries.some((entry) => entry.operation === opFilter) : p.operation === opFilter)) &&
       (deviceFilter === 'all' || (p.device_profile ?? '') === deviceFilter || (!p.device_profile && deviceFilter === 'all')),
   );
 
@@ -156,7 +161,7 @@ export function MaterialLibrary() {
   }
 
   function handleAdd(): void {
-    savePreset({
+    savePreset(withMaterialEntries({
       id: crypto.randomUUID(),
       name: t('panels.machine.material_library.new_preset'),
       material: t('panels.machine.material_library.custom_material'),
@@ -167,7 +172,7 @@ export function MaterialLibrary() {
       passes: 1,
       notes: '',
       category: '',
-    });
+    }, [newMaterialEntry()]));
   }
 
   const hasUnsavedChanges = editingPreset !== null && (
@@ -213,12 +218,12 @@ export function MaterialLibrary() {
       speedTimeUnit,
     );
 
-    const saved = await savePreset({
+    const saved = await savePreset(updateMaterialPrimary({
       ...editingPreset,
       id: editingId,
       name: editName,
       material: editMaterial,
-      thickness_mm: Number.isFinite(Number(editThickness)) && Number(editThickness) > 0
+      thickness_mm: Number.isFinite(Number(editThickness)) && Number(editThickness) >= 0
         ? displayToMm(Number(editThickness), displayUnit)
         : 3.0,
       operation: editOperation,
@@ -227,10 +232,10 @@ export function MaterialLibrary() {
         : Number.isFinite(nextSpeed) && nextSpeed > 0
           ? displaySpeedToMmMin(nextSpeed, displayUnit, speedTimeUnit)
           : 1000,
-      power_percent: Number(editPower) || 50,
+      power_percent: editPower.trim() !== '' && Number.isFinite(Number(editPower)) && Number(editPower) >= 0 && Number(editPower) <= 100 ? Number(editPower) : editingPreset.power_percent,
       passes: Number(editPasses) || 1,
       notes: editNotes,
-    });
+    }));
     if (saved) {
       setEditingId(null);
       setEditingPreset(null);
@@ -265,23 +270,51 @@ export function MaterialLibrary() {
   }
 
   async function handleImport() {
+    setImportBusy(true);
     try {
       const selected = await open({
-        filters: [{ name: 'JSON', extensions: ['json'] }],
+        filters: [{ name: 'JSON / LightBurn', extensions: ['json', 'clb'] }],
         multiple: false,
       });
       if (selected === null || Array.isArray(selected)) return;
       const path = selected;
+      if (/\.clb$/i.test(path)) {
+        const report = await invoke<ClbImportReport>('preview_clb_material_library', { path });
+        setImportError(null);
+        setImportReview(report);
+        return;
+      }
       await invoke<MaterialPreset[]>('import_material_presets', { path });
       await loadPresets();
       useNotificationStore.getState().push(t('panels.machine.material_library.presets_imported'), 'success');
     } catch (e) {
       useNotificationStore.getState().push(wrapBackendError(String(e)), 'error');
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function handleReviewedImport() {
+    if (!importReview || importBusy) return;
+    setImportBusy(true);
+    setImportError(null);
+    try {
+      const merged = await invoke<MaterialPreset[]>('import_reviewed_material_presets', { presets: importReview.presets });
+      // The response is the persisted library. Do not allow a failed follow-up
+      // reload to offer a retry that would import the same presets twice.
+      useMaterialStore.setState({ presets: merged });
+      setImportReview(null);
+      useNotificationStore.getState().push(t('panels.machine.material_library.presets_imported'), 'success');
+    } catch (e) {
+      setImportError(wrapBackendError(String(e)));
+    } finally {
+      setImportBusy(false);
     }
   }
 
   return (
     <div className={orientation === 'wide' ? 'bb-bottom-worklist' : 'space-y-1 px-2 pb-2'}>
+      {importReview && <MaterialLibraryImportReview report={importReview} importing={importBusy} error={importError} onCancel={() => setImportReview(null)} onImport={() => void handleReviewedImport()} />}
       <div className="space-y-1" data-worklist-tools>
       {pendingEditPreset && (
         <div className="rounded border border-bb-warning-border bg-bb-warning-bg p-2 text-xs text-bb-text">
@@ -348,6 +381,7 @@ export function MaterialLibrary() {
         </button>
         <button
           data-testid="import-presets"
+          disabled={importBusy || importReview !== null}
           className="px-2 py-1 text-xs bg-bb-bg border border-bb-border text-bb-text rounded hover:bg-bb-hover"
           onClick={() => void handleImport()}
         >
@@ -363,22 +397,13 @@ export function MaterialLibrary() {
         <button
           data-testid="create-from-layer"
           className="px-2 py-1 text-xs bg-bb-bg border border-bb-border text-bb-text rounded hover:bg-bb-hover"
-          disabled={!effectiveLayerId}
+          disabled={!effectiveLayerId || project?.layers.find((l) => l.id === effectiveLayerId)?.is_tool_layer}
           onClick={() => {
             const layer = project?.layers.find((l) => l.id === effectiveLayerId);
-            if (!layer) return;
+            if (!layer || layer.is_tool_layer) return;
             const entry = layer.entries[0];
             if (!entry) return;
-            // For image layers write both dpi and line_interval_mm as derived-consistent
-            // values via the shared effective helpers. For non-image layers write
-            // only line_interval_mm and leave dpi null (it is unused there).
-            const rs = entry.raster_settings ?? null;
-            const isImage = entry.operation === 'image';
-            const dpiOut = isImage ? effectiveDpi(rs) : (rs?.dpi ?? null);
-            const liOut = isImage
-              ? effectiveLineIntervalMm(rs)
-              : (rs?.line_interval_mm ?? null);
-            savePreset({
+            savePreset(withMaterialEntries({
               id: crypto.randomUUID(),
               name: t('panels.machine.material_library.layer_preset_name', {
                 layer: layer.name || t('panels.machine.material_library.layer'),
@@ -389,27 +414,9 @@ export function MaterialLibrary() {
               speed_mm_min: entry.speed_mm_min,
               power_percent: entry.power_percent,
               passes: entry.vector_settings?.passes ?? entry.raster_settings?.passes ?? 1,
-              dpi: dpiOut,
-              raster_mode: isImage ? (rs?.mode ?? null) : null,
-              line_interval_mm: liOut,
-              scan_angle: rs?.scan_angle ?? null,
-              bidirectional: rs?.bidirectional ?? null,
-              overscan_mm: rs?.overscan_mm ?? null,
-              flood_fill: rs?.flood_fill ?? null,
-              angle_passes: rs?.angle_passes ?? null,
-              angle_increment_deg: rs?.angle_increment_deg ?? null,
-              pass_through: isImage ? (rs?.pass_through ?? null) : null,
-              halftone_cells_per_inch: isImage ? (rs?.halftone_cells_per_inch ?? null) : null,
-              halftone_angle_deg: isImage ? (rs?.halftone_angle_deg ?? null) : null,
-              newsprint_angle_deg: isImage ? (rs?.newsprint_angle_deg ?? null) : null,
-              newsprint_frequency: isImage ? (rs?.newsprint_frequency ?? null) : null,
-              // Layer-level image fields (Phase C1)
-              invert: isImage ? (rs?.invert ?? null) : null,
-              dot_width_correction_mm: isImage ? (rs?.dot_width_correction_mm ?? null) : null,
-              ramp_length_mm: isImage ? (rs?.ramp_length_mm ?? null) : null,
               notes: '',
               category: '',
-            });
+            }, layer.entries));
           }}
         >
           {t('panels.machine.material_library.from_layer')}
@@ -436,6 +443,7 @@ export function MaterialLibrary() {
                 key={preset.id}
                 className="p-1 bg-bb-bg border border-bb-border rounded text-xs space-y-1"
               >
+                {!!preset.entries?.length && <p>{t(preset.entries.length > 1 ? 'panels.layer_settings.sub_layers_count' : 'panels.layer_settings.single_sub_layer', { count: preset.entries.length })}</p>}
                 <input
                   placeholder={t('panels.machine.material_library.name')}
                   className="w-full px-1 py-0.5 bg-bb-bg border border-bb-border rounded text-xs text-bb-text"
@@ -512,6 +520,7 @@ export function MaterialLibrary() {
               >
                 <div className="flex-1 truncate">
                   <div className="font-medium">{preset.name}</div>
+                  {!!preset.entries?.length && <div className="text-bb-text-muted">{t(preset.entries.length > 1 ? 'panels.layer_settings.sub_layers_count' : 'panels.layer_settings.single_sub_layer', { count: preset.entries.length })}</div>}
                   <div className="text-bb-text-muted">
                     {preset.material}
                     {preset.thickness_mm != null ? ` - ${formatThickness(preset.thickness_mm)}${lengthUnitLabel(displayUnit)}` : ''}

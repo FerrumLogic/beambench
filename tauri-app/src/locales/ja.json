@@ -12,7 +12,9 @@
     "hide": "非表示",
     "rename": "名前を変更",
     "loading": "読み込み中...",
-    "go": "移動"
+    "go": "移動",
+    "on": "オン",
+    "off": "オフ"
   },
   "controller_choice": {
     "controller": "Controller",
@@ -2224,7 +2226,13 @@
             "description": "ドキュメントと所有者の設定に基づくBlazeX M3 10Wプリセット。",
             "advisory": "200 x 150 mm、S1000。USB：115200ボー。ネットワーク：ポート8080。原点復帰を実行するか、接続時の原点復帰を有効にしてください。Z端子はロータリーアクセサリー用です。"
           },
+          "creality_falcon2_pro_22w": {
+            "description": "標準ハードウェア向けの文書に基づくUSBプリセットです。移動範囲とS値の上限を確認してください。実機テストは未実施です。"
+          },
           "creality_falcon2_pro_40w": {
+            "description": "標準ハードウェア向けの文書に基づくUSBプリセットです。移動範囲とS値の上限を確認してください。実機テストは未実施です。"
+          },
+          "creality_falcon2_pro_60w": {
             "description": "標準ハードウェア向けの文書に基づくUSBプリセットです。移動範囲とS値の上限を確認してください。実機テストは未実施です。"
           },
           "twotrees_tt_5_5s": {
@@ -2271,7 +2279,10 @@
         "notes": "注意事項",
         "duplicate": "重複",
         "edit": "編集",
-        "delete": "削除"
+        "delete": "削除",
+        "clb_review": "LightBurnのインポートを確認",
+        "clb_summary": "インポート対象: {count}件、スキップ: {skipped}件",
+        "clb_notice": "対応する設定のみがインポートされます。その他の設定はメモに保存され、手動での確認が必要です。サブレイヤーは1つのプリセットにまとめて保存されます。使用前にお使いのレーザーの設定を確認してください。"
       },
       "camera": {
         "status": {

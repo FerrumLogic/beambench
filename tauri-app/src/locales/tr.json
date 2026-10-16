@@ -12,7 +12,9 @@
     "hide": "Gizle",
     "rename": "Yeniden adlandır",
     "loading": "Yükleniyor...",
-    "go": "Git"
+    "go": "Git",
+    "on": "Açık",
+    "off": "Kapalı"
   },
   "controller_choice": {
     "controller": "Controller",
@@ -2224,7 +2226,13 @@
             "description": "Belgelere ve bir kullanıcının yapılandırmasına dayalı BlazeX M3 10W ön ayarı.",
             "advisory": "200 x 150 mm, S1000. USB: 115200 baud. Ağ: 8080 numaralı bağlantı noktası. Referanslayın veya bağlantıda referanslamayı açın. Z soketi döner aksesuar içindir."
           },
+          "creality_falcon2_pro_22w": {
+            "description": "Belgeler temelinde hazırlanmış, standart donanım için USB ön ayarı. Hareket mesafesini ve en yüksek S değerini kontrol edin. Fiziksel testler henüz yapılmadı."
+          },
           "creality_falcon2_pro_40w": {
+            "description": "Belgeler temelinde hazırlanmış, standart donanım için USB ön ayarı. Hareket mesafesini ve en yüksek S değerini kontrol edin. Fiziksel testler henüz yapılmadı."
+          },
+          "creality_falcon2_pro_60w": {
             "description": "Belgeler temelinde hazırlanmış, standart donanım için USB ön ayarı. Hareket mesafesini ve en yüksek S değerini kontrol edin. Fiziksel testler henüz yapılmadı."
           },
           "twotrees_tt_5_5s": {
@@ -2271,7 +2279,10 @@
         "notes": "Notlar",
         "duplicate": "Çoğalt",
         "edit": "Düzenle",
-        "delete": "Sil"
+        "delete": "Sil",
+        "clb_review": "LightBurn içe aktarımını incele",
+        "clb_summary": "İçe aktarılacak ön ayar: {count}; atlanan: {skipped}",
+        "clb_notice": "Yalnızca desteklenen ayarlar içe aktarılır. Diğer ayarlar notlarda tutulur ve elle incelenmelidir. Alt katmanlar tek bir ön ayarda birlikte tutulur. Kullanmadan önce lazerinizin ayarlarını kontrol edin."
       },
       "camera": {
         "status": {
