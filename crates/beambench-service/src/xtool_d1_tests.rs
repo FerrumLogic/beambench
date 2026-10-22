@@ -257,6 +257,9 @@ impl Drop for Emulator {
     }
 }
 fn context(emulator: &Emulator) -> ServiceContext {
+    context_for_session(emulator.session())
+}
+pub(crate) fn context_for_session(session: XToolD1RuntimeSession) -> ServiceContext {
     let profile = MachineProfile {
         bed_width_mm: 430.0,
         bed_height_mm: 400.0,
@@ -289,10 +292,10 @@ fn context(emulator: &Emulator) -> ServiceContext {
         },
     ));
     *ctx.project.lock().unwrap() = Some(project);
-    *ctx.session.lock().unwrap() = Some(MachineSessionHandle::XToolD1(emulator.session()));
+    *ctx.session.lock().unwrap() = Some(MachineSessionHandle::XToolD1(session));
     ctx
 }
-fn wait_state(ctx: &ServiceContext, expected: JobState) {
+pub(crate) fn wait_state(ctx: &ServiceContext, expected: JobState) {
     let deadline = Instant::now() + Duration::from_secs(3);
     loop {
         let progress = machine::tick_job(ctx)
