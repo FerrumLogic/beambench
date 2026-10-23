@@ -1,6 +1,14 @@
 name: Remote preview Windows
 on:
   workflow_dispatch:
+  push:
+    branches: [codex/remote-tauri-prototype]
+    paths:
+      - '.github/workflows/remote-preview-windows.yml'
+      - 'tauri-app/remote-shell/**'
+concurrency:
+  group: remote-preview-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
