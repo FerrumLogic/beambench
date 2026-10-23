@@ -8,6 +8,10 @@ async fn main() -> Result<(), String> {
         &std::env::var("BEAMBENCH_REMOTE_TOKEN").map_err(|_| "Set BEAMBENCH_REMOTE_TOKEN")?,
     )?;
     let mut results = serde_json::Map::new();
+    for command in ["get_macros", "get_camera_agent_state"] {
+        client.invoke(command, json!({})).await?;
+        results.insert(command.into(), json!({"ok":true}));
+    }
     for command in [
         "get_app_status",
         "get_app_settings",

@@ -18,6 +18,13 @@ pub fn run() {
                     .unwrap_or_else(|_| "http://127.0.0.1:5900".into()),
                 &token,
             )
+        })
+        .and_then(|client| {
+            let directory = std::env::var_os("LOCALAPPDATA").ok_or("LOCALAPPDATA is not set")?;
+            client.with_preferences_file(
+                std::path::PathBuf::from(directory)
+                    .join("FerrumLogic/BeamBenchRemotePreview/ui-settings.json"),
+            )
         }) {
         Ok(client) => client,
         Err(error) => {

@@ -29,3 +29,7 @@ Transport contract tests use local HTTP/WebSocket fixtures. A live Rust probe re
 Linux transport tests do not prove that the Windows shell builds or that the GUI renders correctly. A native Windows x64 build and all eight transport tests passed in GitHub Actions. GUI startup on the target laptop remains untested. The frontend's remote snapshot/reconnect integration and complete command mapping also need UI verification. Do not use this prototype to run a laser job.
 
 License: GPL-3.0-or-later, like upstream. This is an unofficial development prototype; no signing or automatic updates are configured.
+
+## 0.1.1 startup fixes
+
+Macro listing and camera state use their read-only API endpoints. Panel layout and display preferences are stored only on the laptop, in `%LOCALAPPDATA%/FerrumLogic/BeamBenchRemotePreview/ui-settings.json`, and are overlaid on server settings. UI preferences can be saved while disconnected after initial settings have loaded. Tokens, machine profiles and API settings are never written to this file.

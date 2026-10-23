@@ -116,6 +116,149 @@ fn rejects_embedded_credentials_and_plain_remote_http() {
 }
 
 #[tokio::test]
+async fn startup_macros_are_read_as_an_array_without_executing_them() {
+    let (base, received, handle) = backend("200 OK", json!({"macros":[],"count":0}));
+    let client = RemoteClient::new(&base, TOKEN).unwrap();
+    assert_eq!(
+        client.invoke("get_macros", json!({})).await.unwrap(),
+        json!([])
+    );
+    handle.join().unwrap();
+    assert!(received.lock().unwrap().starts_with("GET /api/v1/macros "));
+}
+
+#[tokio::test]
+async fn startup_camera_state_passes_through_without_capture() {
+    let camera = json!({"selected_camera_id":null,"frame":null,"overlay_visible":false});
+    let (base, received, handle) = backend("200 OK", camera.clone());
+    let client = RemoteClient::new(&base, TOKEN).unwrap();
+    assert_eq!(
+        client
+            .invoke("get_camera_agent_state", json!({}))
+            .await
+            .unwrap(),
+        camera
+    );
+    handle.join().unwrap();
+    assert!(
+        received
+            .lock()
+            .unwrap()
+            .starts_with("GET /api/v1/camera/state ")
+    );
+}
+
+#[tokio::test]
+async fn panel_layout_changes_are_client_local() {
+    let (base, received, handle) =
+        backend("200 OK", json!({"panel_layout":null,"api_enabled":true}));
+    let client = RemoteClient::new(&base, TOKEN).unwrap();
+    let layout =
+        json!({"layout_version":1,"zones":{},"hidden_panel_ids":[],"right_panel_width":320});
+    let result = client
+        .invoke("update_app_settings", json!({"panelLayout":layout}))
+        .await
+        .unwrap();
+    assert_eq!(result["panel_layout"], layout);
+    assert_eq!(result["api_enabled"], true);
+    handle.join().unwrap();
+    assert!(
+        received
+            .lock()
+            .unwrap()
+            .starts_with("GET /api/v1/app/settings ")
+    );
+}
+
+#[tokio::test]
+async fn panel_layout_survives_a_new_client_process_without_server_writes() {
+    let directory = std::env::temp_dir().join(format!(
+        "beambench-ui-test-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let path = directory.join("ui-settings.json");
+    let layout = json!({"layout_version":8,"zones":{},"right_panel_width":380});
+    let (base, received, server) =
+        backend("200 OK", json!({"panel_layout":null,"api_enabled":true}));
+    let client = RemoteClient::new(&base, TOKEN)
+        .unwrap()
+        .with_preferences_file(path.clone())
+        .unwrap();
+    client
+        .invoke("update_app_settings", json!({"panelLayout":layout}))
+        .await
+        .unwrap();
+    server.join().unwrap();
+    assert!(received.lock().unwrap().starts_with("GET "));
+    // A second save exercises replacement of the existing preferences file,
+    // including Windows rename semantics, without a second server request.
+    client
+        .invoke("update_app_settings", json!({"panelLayout":layout}))
+        .await
+        .unwrap();
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(!saved.contains(TOKEN));
+    assert!(!saved.contains("api_enabled"));
+    let (base, _, server) = backend("200 OK", json!({"panel_layout":null,"api_enabled":true}));
+    let restarted = RemoteClient::new(&base, TOKEN)
+        .unwrap()
+        .with_preferences_file(path)
+        .unwrap();
+    let settings = restarted
+        .invoke("get_app_settings", json!({}))
+        .await
+        .unwrap();
+    assert_eq!(settings["panel_layout"], layout);
+    assert_eq!(settings["api_enabled"], true);
+    server.join().unwrap();
+}
+
+#[tokio::test]
+async fn layout_can_be_saved_after_the_host_connection_disappears() {
+    let (base, _, server) = backend("200 OK", json!({"panel_layout":null}));
+    let client = RemoteClient::new(&base, TOKEN).unwrap();
+    client.invoke("get_app_settings", json!({})).await.unwrap();
+    server.join().unwrap();
+    let layout = json!({"layout_version":8,"zones":{}});
+    assert_eq!(
+        client
+            .invoke("update_app_settings", json!({"panelLayout":layout}))
+            .await
+            .unwrap()["panel_layout"],
+        layout
+    );
+}
+
+#[tokio::test]
+async fn local_preferences_do_not_allow_api_or_laser_settings_to_be_changed() {
+    let client = RemoteClient::new("http://127.0.0.1:1", TOKEN).unwrap();
+    for args in [
+        json!({"apiEnabled":false}),
+        json!({"apiPort":1}),
+        json!({"panelLayout":{},"machineProfiles":[]}),
+    ] {
+        assert!(
+            client
+                .invoke("update_app_settings", args)
+                .await
+                .unwrap_err()
+                .contains("read-only")
+        );
+    }
+    assert!(
+        client
+            .invoke("update_app_settings", json!({"panelLayout":"bad"}))
+            .await
+            .unwrap_err()
+            .contains("panelLayout")
+    );
+}
+
+#[tokio::test]
 async fn session_reply_is_projected_to_the_existing_machine_service_contract() {
     let (base, _, handle) = backend(
         "200 OK",

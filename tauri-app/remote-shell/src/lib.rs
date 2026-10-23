@@ -2,6 +2,12 @@ use futures_util::{SinkExt, StreamExt};
 use reqwest::{Client, StatusCode};
 use serde_json::{Value, json};
 use std::time::Duration;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
+mod preferences;
+use preferences::Preferences;
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{Message, client::IntoClientRequest},
@@ -13,6 +19,7 @@ pub struct RemoteClient {
     base: Url,
     token: String,
     http: Client,
+    preferences: Arc<Mutex<Preferences>>,
 }
 
 impl RemoteClient {
@@ -52,7 +59,13 @@ impl RemoteClient {
             base,
             token: token.into(),
             http,
+            preferences: Arc::new(Mutex::new(Preferences::default())),
         })
+    }
+
+    pub fn with_preferences_file(mut self, path: PathBuf) -> Result<Self, String> {
+        self.preferences = Arc::new(Mutex::new(Preferences::load(path)?));
+        Ok(self)
     }
 
     fn sanitize(&self, error: impl std::fmt::Display) -> String {
@@ -91,9 +104,28 @@ impl RemoteClient {
     }
 
     pub async fn invoke(&self, command: &str, args: Value) -> Result<Value, String> {
+        if command == "update_app_settings" {
+            let patch = Preferences::validate_patch(&args)?;
+            let cached = self
+                .preferences
+                .lock()
+                .map_err(|_| "UI settings lock failed")?
+                .cached_remote();
+            let remote = match cached {
+                Some(value) => value,
+                None => self.get("app/settings", false).await?,
+            };
+            return self
+                .preferences
+                .lock()
+                .map_err(|_| "UI settings lock failed")?
+                .update(patch, remote);
+        }
         let (path, field) = match command {
             "get_app_status" => ("app/status", ""),
             "get_app_settings" => ("app/settings", ""),
+            "get_macros" => ("macros", "/macros"),
+            "get_camera_agent_state" => ("camera/state", ""),
             "remote_agent_state" => ("agent/state", ""),
             "get_project" => ("projects/current", ""),
             "get_project_layers" => ("projects/layers", "/layers"),
@@ -110,6 +142,7 @@ impl RemoteClient {
             // These are client-local startup hooks. The remote client's camera
             // must not register itself as the server desktop's capture bridge.
             "mark_frontend_ready"
+            | "agent_sync_selection"
             | "register_camera_agent_bridge"
             | "unregister_camera_agent_bridge" => return Ok(Value::Null),
             "take_pending_notices" | "check_recovery_files" => return Ok(json!([])),
@@ -141,6 +174,13 @@ impl RemoteClient {
             }
         };
         let body = self.get(path, command == "get_project").await?;
+        if command == "get_app_settings" {
+            return self
+                .preferences
+                .lock()
+                .map_err(|_| "UI settings lock failed")?
+                .merge(body);
+        }
         if command == "get_app_status" {
             let version = body
                 .get("app_version")

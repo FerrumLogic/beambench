@@ -2,14 +2,39 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Beam Bench Remote Preview",
   "identifier": "local.ferrumlogic.beambench.remote.preview",
-  "version": "0.1.0",
-  "build": {"frontendDist": "../dist"},
+  "version": "0.1.1",
+  "build": {
+    "frontendDist": "../dist"
+  },
   "app": {
-    "windows": [{"label":"main","title":"Beam Bench Remote — read-only prototype","width":1400,"height":900,"minWidth":900,"minHeight":600,"dragDropEnabled":false}],
-    "security": {"csp":"default-src 'self' ipc: http://ipc.localhost; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; worker-src 'self' blob:; object-src 'none'; base-uri 'none'"}
+    "windows": [
+      {
+        "label": "main",
+        "title": "Beam Bench Remote \u2014 read-only prototype",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 900,
+        "minHeight": 600,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; worker-src 'self' blob:; object-src 'none'; base-uri 'none'"
+    }
   },
   "bundle": {
-    "active":true,"targets":["nsis"],"icon":["../src-tauri/icons/icon.ico"],
-    "resources":{"../../LICENSE":"licenses/GPL-3.0.txt","../../COPYRIGHT":"licenses/COPYRIGHT","../../THIRD_PARTY_NOTICES.md":"licenses/THIRD_PARTY_NOTICES.md","../../THIRD_PARTY_LICENSES.md":"licenses/THIRD_PARTY_LICENSES.md"}
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "../src-tauri/icons/icon.ico"
+    ],
+    "resources": {
+      "../../LICENSE": "licenses/GPL-3.0.txt",
+      "../../COPYRIGHT": "licenses/COPYRIGHT",
+      "../../THIRD_PARTY_NOTICES.md": "licenses/THIRD_PARTY_NOTICES.md",
+      "../../THIRD_PARTY_LICENSES.md": "licenses/THIRD_PARTY_LICENSES.md"
+    }
   }
 }
