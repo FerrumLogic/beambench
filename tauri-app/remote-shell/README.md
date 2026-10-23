@@ -20,12 +20,12 @@ The stock frontend's file pickers remain local and are not usable for server imp
 
 Requirements: Node.js 24, Rust stable with `x86_64-pc-windows-msvc`, Visual Studio C++ build tools/Windows SDK, and WebView2 Runtime. Run `Build-Windows.ps1` in PowerShell from the source checkout. It builds the original frontend and the remote shell. Run `Start-Remote.ps1` after creating the SSH tunnel.
 
-`.github/workflows/remote-preview-windows.yml` is a manual Windows build job. It requires no server token, machine access or release credentials. It builds a test executable artifact, not an upstream release. It has not yet been run.
+`.github/workflows/remote-preview-windows.yml` is a manual Windows build job. It requires no server token, machine access or release credentials. It builds a test executable artifact, not an upstream release. A native Windows run succeeded: https://github.com/FerrumLogic/beambench/actions/runs/40029908728 .
 
 ## Verification and limits
 
 Transport contract tests use local HTTP/WebSocket fixtures. A live Rust probe reads eleven command shapes from the installed stock server and receives `system.snapshot`, without changing the project or sending machine commands. The original frontend builds unchanged and its targeted service tests pass.
 
-Linux transport tests do not prove that the Windows shell builds or that the GUI renders correctly. A cross-check on Linux currently requires unavailable Microsoft tools (`lib.exe`); native Windows compilation/startup remains required. The frontend's remote snapshot/reconnect integration and complete command mapping also need UI verification. Do not use this prototype to run a laser job.
+Linux transport tests do not prove that the Windows shell builds or that the GUI renders correctly. A native Windows x64 build and all eight transport tests passed in GitHub Actions. GUI startup on the target laptop remains untested. The frontend's remote snapshot/reconnect integration and complete command mapping also need UI verification. Do not use this prototype to run a laser job.
 
 License: GPL-3.0-or-later, like upstream. This is an unofficial development prototype; no signing or automatic updates are configured.
