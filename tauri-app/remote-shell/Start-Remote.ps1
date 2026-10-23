@@ -7,16 +7,24 @@ if (Test-Path (Join-Path $PSScriptRoot 'beambench-remote-shell.exe')) {
 if (-not (Test-Path $executable)) { throw 'Build the Windows executable first with Build-Windows.ps1.' }
 $secret = Read-Host 'BeamBench API token' -AsSecureString
 $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
-$previousUrl = $env:BEAMBENCH_REMOTE_URL
-$previousToken = $env:BEAMBENCH_REMOTE_TOKEN
+$process = New-Object System.Diagnostics.Process
 try {
-    $env:BEAMBENCH_REMOTE_URL = $ApiUrl
-    $env:BEAMBENCH_REMOTE_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
-    & $executable
-    if ($LASTEXITCODE -ne 0) { throw "Remote client exited with code $LASTEXITCODE. Check the API address and token." }
+    $process.StartInfo.FileName = $executable
+    $process.StartInfo.WorkingDirectory = Split-Path $executable -Parent
+    $process.StartInfo.UseShellExecute = $false
+    $process.StartInfo.RedirectStandardError = $true
+    $process.StartInfo.EnvironmentVariables['BEAMBENCH_REMOTE_URL'] = $ApiUrl
+    $process.StartInfo.EnvironmentVariables['BEAMBENCH_REMOTE_TOKEN'] = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
+    if (-not $process.Start()) { throw 'Could not start the remote client.' }
+    $stderr = $process.StandardError.ReadToEndAsync()
+    $process.WaitForExit()
+    $diagnostic = $stderr.GetAwaiter().GetResult()
+    $exitCode = $process.ExitCode
+    if ($exitCode -ne 0) {
+        throw "Remote client exited with code $exitCode. $diagnostic"
+    }
 } finally {
-    $env:BEAMBENCH_REMOTE_URL = $previousUrl
-    $env:BEAMBENCH_REMOTE_TOKEN = $previousToken
+    $process.Dispose()
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)
     $secret.Dispose()
 }

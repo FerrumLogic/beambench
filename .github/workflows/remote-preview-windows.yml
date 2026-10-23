@@ -4,8 +4,14 @@ on:
   push:
     branches: [codex/remote-tauri-prototype]
     paths:
-      - '.github/workflows/remote-preview-windows.yml'
-      - 'tauri-app/remote-shell/**'
+      - 'tauri-app/remote-shell/src/**'
+      - 'tauri-app/remote-shell/tests/**'
+      - 'tauri-app/remote-shell/examples/**'
+      - 'tauri-app/remote-shell/Cargo.toml'
+      - 'tauri-app/remote-shell/Cargo.lock'
+      - 'tauri-app/remote-shell/tauri.conf.json'
+      - 'tauri-app/remote-shell/build.rs'
+      - 'tauri-app/remote-shell/capabilities/**'
 concurrency:
   group: remote-preview-${{ github.ref }}
   cancel-in-progress: true

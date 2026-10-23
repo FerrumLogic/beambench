@@ -1,0 +1,20 @@
+name: Remote launcher Windows PowerShell 5.1
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/remote-tauri-prototype]
+    paths:
+      - '.github/workflows/remote-launcher-tests.yml'
+      - 'tauri-app/remote-shell/Start-Remote.ps1'
+      - 'scripts/test-remote-launcher.ps1'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Test launcher with GUI fixture in Windows PowerShell 5.1
+        shell: cmd
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\test-remote-launcher.ps1
