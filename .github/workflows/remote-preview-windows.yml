@@ -1,0 +1,42 @@
+name: Remote preview Windows
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7, matching upstream
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable, matching upstream
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7, matching upstream
+        with:
+          node-version: 24
+      - name: Build the stock frontend
+        working-directory: tauri-app
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test the remote shell on Windows
+        run: cargo test --locked --manifest-path tauri-app/remote-shell/Cargo.toml
+      - name: Build Windows x64 executable
+        run: cargo build --locked --release --target x86_64-pc-windows-msvc --manifest-path tauri-app/remote-shell/Cargo.toml
+      - name: Collect prototype and license
+        run: |
+          New-Item -ItemType Directory -Force remote-preview
+          Copy-Item tauri-app/remote-shell/target/x86_64-pc-windows-msvc/release/beambench-remote-shell.exe remote-preview/
+          Copy-Item LICENSE,COPYRIGHT,THIRD_PARTY_NOTICES.md,THIRD_PARTY_LICENSES.md remote-preview/
+          Copy-Item tauri-app/remote-shell/README.md remote-preview/
+          Copy-Item tauri-app/remote-shell/Start-Remote.ps1 remote-preview/
+          Get-FileHash remote-preview/beambench-remote-shell.exe -Algorithm SHA256 | Format-List | Out-File remote-preview/SHA256.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7, matching upstream
+        with:
+          name: beambench-remote-preview-windows-x64
+          path: remote-preview/
+          retention-days: 7

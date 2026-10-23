@@ -1,0 +1,6 @@
+{
+  "identifier":"default",
+  "description":"Local window and dialog permissions for the remote viewer",
+  "windows":["main"],
+  "permissions":["core:default","dialog:default","process:default"]
+}
