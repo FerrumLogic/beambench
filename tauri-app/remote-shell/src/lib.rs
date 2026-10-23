@@ -7,6 +7,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 mod preferences;
+mod workflows;
 use preferences::Preferences;
 use tokio_tungstenite::{
     connect_async,
@@ -20,6 +21,7 @@ pub struct RemoteClient {
     token: String,
     http: Client,
     preferences: Arc<Mutex<Preferences>>,
+    workflow_schema: Arc<tokio::sync::OnceCell<Value>>,
 }
 
 impl RemoteClient {
@@ -60,6 +62,7 @@ impl RemoteClient {
             token: token.into(),
             http,
             preferences: Arc::new(Mutex::new(Preferences::default())),
+            workflow_schema: Arc::new(tokio::sync::OnceCell::new()),
         })
     }
 
@@ -73,13 +76,28 @@ impl RemoteClient {
     }
 
     async fn get(&self, path: &str, missing_project_is_null: bool) -> Result<Value, String> {
-        let response = self
-            .http
-            .get(self.base.join(path).map_err(|_| "Invalid API route")?)
-            .bearer_auth(&self.token)
-            .send()
+        self.request(reqwest::Method::GET, path, None, missing_project_is_null)
             .await
-            .map_err(|e| self.sanitize(e))?;
+    }
+
+    async fn request(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        body: Option<Value>,
+        missing_project_is_null: bool,
+    ) -> Result<Value, String> {
+        let mut request = self
+            .http
+            .request(
+                method,
+                self.base.join(path).map_err(|_| "Invalid API route")?,
+            )
+            .bearer_auth(&self.token);
+        if let Some(body) = body {
+            request = request.json(&body);
+        }
+        let response = request.send().await.map_err(|e| self.sanitize(e))?;
         let status = response.status();
         let body: Value = response
             .json()
@@ -126,6 +144,17 @@ impl RemoteClient {
             "get_app_settings" => ("app/settings", ""),
             "get_macros" => ("macros", "/macros"),
             "get_camera_agent_state" => ("camera/state", ""),
+            "list_serial_ports" => ("machine/ports", "/ports"),
+            "list_lihuiyu_usb_devices" => ("machine/usb/lihuiyu", ""),
+            "get_machine_profile_presets" => ("profiles/presets", "/presets"),
+            "suggest_machine_profile_preset" => ("profiles/suggestion", ""),
+            "get_material_presets" => ("materials", "/presets"),
+            "get_machine_discovery_state" => ("machine/discover", ""),
+            "list_camera_devices" => ("camera/devices", "/devices"),
+            "get_camera_calibration" => ("camera/calibration", ""),
+            "get_camera_alignment" => ("camera/alignment", ""),
+            "get_controller_info" => ("machine/session", "/controller_info"),
+            "get_grbl_settings" => ("machine/session", "/controller_settings"),
             "remote_agent_state" => ("agent/state", ""),
             "get_project" => ("projects/current", ""),
             "get_project_layers" => ("projects/layers", "/layers"),
@@ -168,6 +197,27 @@ impl RemoteClient {
                 return Ok(json!(data.to_vec()));
             }
             _ => {
+                if !matches!(
+                    command,
+                    "start_job"
+                        | "machine_jog"
+                        | "send_gcode_line"
+                        | "resume_job"
+                        | "run_macro"
+                        | "replace_project"
+                        | "create_project"
+                        | "quality_test_start"
+                ) {
+                    let schema = self
+                        .workflow_schema
+                        .get_or_try_init(|| self.get("workflows/schema", false))
+                        .await?;
+                    if let Some((path, body)) = workflows::resolve(schema, command, args)? {
+                        return self
+                            .request(reqwest::Method::POST, &path, Some(body), false)
+                            .await;
+                    }
+                }
                 return Err(format!(
                     "Remote prototype is read-only; command '{command}' is not available"
                 ));

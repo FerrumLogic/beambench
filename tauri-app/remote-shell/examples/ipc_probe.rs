@@ -12,7 +12,11 @@ async fn main() {
             .map_err(|e| e.to_string())?;
         let input: Value = serde_json::from_str(&input).map_err(|e| e.to_string())?;
         let token = std::env::var("BEAMBENCH_REMOTE_TOKEN").map_err(|_| "Missing token")?;
-        let client = RemoteClient::new("http://127.0.0.1:5900", &token)?;
+        let client = RemoteClient::new(
+            &std::env::var("BEAMBENCH_REMOTE_URL")
+                .unwrap_or_else(|_| "http://127.0.0.1:5900".into()),
+            &token,
+        )?;
         let client = if let Some(path) = std::env::var_os("BEAMBENCH_TEST_PREFERENCES") {
             client.with_preferences_file(path.into())?
         } else {
